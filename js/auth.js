@@ -84,19 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                // إضافة المستخدم إلى قاعدة البيانات
-                try {
-                    await setDoc(doc(db, 'users', userCredential.user.uid), {
-                        email: email,
-                        createdAt: new Date().toISOString(),
-                        role: 'user'
-                    });
-                    alert('تم إنشاء الحساب بنجاح!');
-                    window.location.href = 'index.html';
-                } catch (error) {
-                    console.error('خطأ في حفظ بيانات المستخدم:', error);
-                    showError('تم إنشاء الحساب ولكن حدث خطأ في حفظ البيانات');
-                }
+                alert('تم إنشاء الحساب بنجاح!');
+                window.location.href = 'index.html';
             } catch (error) {
                 let errorMessage = 'خطأ في إنشاء الحساب: ';
                 switch (error.code) {
