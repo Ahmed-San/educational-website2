@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-import { getDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+import { getFirestore, getDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
 
 // تهيئة Firebase
@@ -11,17 +11,23 @@ const db = getFirestore(app);
 // التحقق من حالة تسجيل الدخول
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        // التحقق من صلاحيات المستخدم
-        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-        if (!adminDoc.exists()) {
-            // إذا لم يكن المستخدم مسؤولاً، قم بتسجيل خروجه
+        try {
+            // التحقق من صلاحيات المستخدم
+            const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+            if (!adminDoc.exists()) {
+                // إذا لم يكن المستخدم مسؤولاً، قم بتسجيل خروجه
+                await signOut(auth);
+                window.location.href = 'login.html';
+            }
+        } catch (error) {
+            console.error('خطأ في التحقق من الصلاحيات:', error);
             await signOut(auth);
-            window.location.href = '/login.html';
+            window.location.href = 'login.html';
         }
     } else {
         // إذا لم يكن هناك مستخدم مسجل، انتقل إلى صفحة تسجيل الدخول
         if (!window.location.href.includes('login.html')) {
-            window.location.href = '/login.html';
+            window.location.href = 'login.html';
         }
     }
 });
@@ -31,47 +37,87 @@ window.toggleForms = function() {
     const loginContainer = document.querySelector('.container:not(#signupContainer)');
     const signupContainer = document.getElementById('signupContainer');
     
-    if (loginContainer.style.display !== 'none') {
-        loginContainer.style.display = 'none';
-        signupContainer.style.display = 'block';
-    } else {
-        loginContainer.style.display = 'block';
-        signupContainer.style.display = 'none';
+    if (loginContainer && signupContainer) {
+        if (loginContainer.style.display !== 'none') {
+            loginContainer.style.display = 'none';
+            signupContainer.style.display = 'block';
+        } else {
+            loginContainer.style.display = 'block';
+            signupContainer.style.display = 'none';
+        }
     }
 };
 
-// تسجيل الدخول
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+// إضافة مستمعي الأحداث عند تحميل المستند
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
 
-    try {
-        await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = 'admin.html';
-    } catch (error) {
-        showError('خطأ في تسجيل الدخول: ' + error.message);
-    }
-});
+    // تسجيل الدخول
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-// إنشاء حساب جديد
-document.getElementById('signupForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('signupEmail').value;
-    const password = document.getElementById('signupPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-
-    if (password !== confirmPassword) {
-        showError('كلمات المرور غير متطابقة');
-        return;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                window.location.href = 'admin.html';
+            } catch (error) {
+                showError('خطأ في تسجيل الدخول: ' + error.message);
+            }
+        });
     }
 
-    try {
-        await createUserWithEmailAndPassword(auth, email, password);
-        alert('تم إنشاء الحساب بنجاح!');
-        window.location.href = 'admin.html';
-    } catch (error) {
-        showError('خطأ في إنشاء الحساب: ' + error.message);
+    // إنشاء حساب جديد
+    if (signupForm) {
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (password !== confirmPassword) {
+                showError('كلمات المرور غير متطابقة');
+                return;
+            }
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                // إضافة المستخدم إلى قاعدة البيانات
+                try {
+                    await setDoc(doc(db, 'users', userCredential.user.uid), {
+                        email: email,
+                        createdAt: new Date().toISOString(),
+                        role: 'user'
+                    });
+                    alert('تم إنشاء الحساب بنجاح!');
+                    window.location.href = 'index.html';
+                } catch (error) {
+                    console.error('خطأ في حفظ بيانات المستخدم:', error);
+                    showError('تم إنشاء الحساب ولكن حدث خطأ في حفظ البيانات');
+                }
+            } catch (error) {
+                let errorMessage = 'خطأ في إنشاء الحساب: ';
+                switch (error.code) {
+                    case 'auth/email-already-in-use':
+                        errorMessage += 'البريد الإلكتروني مستخدم بالفعل';
+                        break;
+                    case 'auth/invalid-email':
+                        errorMessage += 'البريد الإلكتروني غير صالح';
+                        break;
+                    case 'auth/operation-not-allowed':
+                        errorMessage += 'تسجيل الحساب غير مفعل حالياً';
+                        break;
+                    case 'auth/weak-password':
+                        errorMessage += 'كلمة المرور ضعيفة جداً';
+                        break;
+                    default:
+                        errorMessage += error.message;
+                }
+                showError(errorMessage);
+            }
+        });
     }
 });
 
@@ -83,9 +129,11 @@ function showError(message) {
     
     // إضافة رسالة الخطأ للنموذج النشط
     const activeForm = document.querySelector('form:not([style*="display: none"])');
-    const existingError = activeForm.parentElement.querySelector('.alert');
-    if (existingError) {
-        existingError.remove();
+    if (activeForm) {
+        const existingError = activeForm.parentElement.querySelector('.alert');
+        if (existingError) {
+            existingError.remove();
+        }
+        activeForm.insertAdjacentElement('afterend', errorDiv);
     }
-    activeForm.insertAdjacentElement('afterend', errorDiv);
 }
