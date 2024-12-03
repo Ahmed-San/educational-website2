@@ -100,5 +100,21 @@
     </script>
     
     <script src="js/auth.js" type="module"></script>
+    
+    <!-- وظيفة تبديل النماذج -->
+    <script>
+        function toggleForms() {
+            const loginContainer = document.querySelector('.container:not(#signupContainer)');
+            const signupContainer = document.getElementById('signupContainer');
+            
+            if (loginContainer.style.display === 'none') {
+                loginContainer.style.display = 'block';
+                signupContainer.style.display = 'none';
+            } else {
+                loginContainer.style.display = 'none';
+                signupContainer.style.display = 'block';
+            }
+        }
+    </script>
 </body>
 </html>
