@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-                window.location.href = 'admin.html';
+                window.location.href = 'index.html';
             } catch (error) {
                 showError('خطأ في تسجيل الدخول: ' + error.message);
             }
